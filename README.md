@@ -1,6 +1,6 @@
 # Enterprise Retail Data Warehouse & Sales Dashboard
 
-An end-to-end retail data project using **PostgreSQL** and **SQL** to build a star schema data warehouse, paired with an interactive **Power BI** dashboard that analyzes sales, products, and countries.
+An end-to-end retail data project using **PostgreSQL** and **SQL** to build a star schema data warehouse from raw transaction data, paired with an interactive **Power BI** dashboard for sales, product, and country analysis.
 
 ![Enterprise Retail Sales Dashboard](Dashboard.png)
 
@@ -9,40 +9,71 @@ An end-to-end retail data project using **PostgreSQL** and **SQL** to build a st
 ## 🛠️ Tech Stack
 
 - **Database & Data Warehouse:** PostgreSQL
-- **Querying & ETL:** SQL
+- **Querying, Cleaning & Validation:** SQL
 - **Data Visualization:** Microsoft Power BI
-- **Documentation:** PDF project report
 
 ---
 
 ## 🏗️ Data Warehouse Architecture
 
-- **Schema Design:** Star schema with a central fact table and supporting dimension tables, built for analytical queries.
-- **Fact Table:** `fact_sales`
-- **Dimension Tables:** `dim_customers`, `dim_products`, `dim_stores`, `dim_date`
-- **ETL Process:** Raw retail data was cleaned, transformed, and loaded into the PostgreSQL tables with SQL.
-- **Dataset size:** [X] rows in `fact_sales`
+Raw data flows through three layers:
+
+1. **Staging** (`stg_online_retail`): raw data as loaded, **541,909 rows**.
+2. **Clean** (`clean_online_retail`): data after cleaning rules, **530,100 rows** (11,809 removed).
+3. **Star schema:** one fact table and four dimension tables, linked by primary and foreign keys.
+
+| Table | Type | Rows |
+|---|---|---|
+| `fact_sales` | Fact (one row per invoice line) | 530,100 |
+| `dim_customer` | Dimension | 4,339 |
+| `dim_product` | Dimension | 3,921 |
+| `dim_date` | Dimension | 374 |
+| `dim_country` | Dimension | 38 |
+
+---
+
+## 🧹 Data Cleaning & Validation
+
+Rows removed from staging (11,809 in total):
+
+- Cancelled invoices (invoice numbers starting with "C"): 9,288
+- Zero or negative quantity: 10,624
+- Zero or negative unit price: 2,521
+- Missing product description: 1,454
+
+Some rows match more than one rule, so these counts overlap.
+
+The checks in `sql_scripts/03_validation_checks.sql` confirm that:
+
+- Row counts reconcile across the staging, clean, and fact layers.
+- No invalid quantities, prices, or cancelled invoices remain in the clean layer.
+- Every fact row matches a row in each dimension, so there are no orphan keys.
+- `total_sales` equals `quantity × unit_price` on every row.
+
+**Known limitations**
+
+- 132,220 clean rows (about 25%) have no `customer_id`. They are kept and mapped to an "unknown customer" row (`customer_key = 0`).
+- 5,226 duplicate rows remain in the clean data. Identical lines can be genuine repeat items on the same invoice, so they were not removed.
+- Non-product items such as POSTAGE, DOTCOM POSTAGE, and Manual are in the fact table. The dashboard's Top 10 Products chart excludes them.
 
 ---
 
 ## 📊 Dashboard Overview
 
-**KPI cards**
+Headline numbers for the full data period (1 December 2010 to 9 December 2011):
 
 | Metric | Value |
 |---|---|
-| Total Sales | 10.31M |
-| Total Orders | 19.69K |
-| Units Sold | 5M |
-| Average Order Value | 523.51 |
+| Total Sales | 10.67M |
+| Total Orders | 19,960 |
+| Units Sold | 5.59M |
+| Average Order Value | 534.40 |
 
 **Visuals**
-- **Monthly Sales Trend:** sales by month across the data period.
-- **Top 10 Products by Sales:** best-selling products, excluding non-product items such as postage and manual adjustments.
+- **Monthly Sales Trend:** sales by month. December 2011 is a partial month, so the drop at the end of the line is not a real decline.
+- **Top 10 Products by Sales:** best-selling products, excluding postage and manual adjustments.
 - **Sales by Country:** sales broken down by country.
 - **Slicers:** filter by date range and by country.
-
-**Data period:** 1 December 2010 to 6 December 2011. December 2011 is a partial month, so the drop at the end of the trend line is not a real decline.
 
 ---
 
@@ -56,29 +87,34 @@ An end-to-end retail data project using **PostgreSQL** and **SQL** to build a st
 
 ## 📂 Repository Structure
 
-- `sql_scripts/` – database creation, schema tables, and analytical SQL queries
+- `sql_scripts/01_schema.sql` – table definitions for all layers
+- `sql_scripts/02_cleaning_rules.sql` – cleaning rules from staging to clean
+- `sql_scripts/03_validation_checks.sql` – data validation queries with expected results
+- `Enterprise_Retail_Data_Warehouse.zip` – full PostgreSQL database dump (compressed, too large to upload directly)
 - `Enterprise Retail Sales Dashboard.pbix` – Power BI report file
-- `Dashboard.png` – preview of the dashboard
-- `Enterprise_Retail_Data_Warehouse_Project.pdf` – project documentation and methodology
+- `Dashboard.png` – dashboard preview
+- `Enterprise_Retail_Data_Warehouse_Project.pdf` – project documentation
 
 ---
 
 ## 🚀 How to Run This Project
 
-1. **Database setup:** Create a PostgreSQL database, then run the scripts in `sql_scripts/` to create the schema and load the tables.
-2. **Open the dashboard:** Open `Enterprise Retail Sales Dashboard.pbix` in Power BI Desktop.
-3. **Refresh the data:** Under **Transform data → Data source settings**, update the PostgreSQL connection details, then click **Refresh**.
+1. **Restore the database:** unzip `Enterprise_Retail_Data_Warehouse.zip`, create an empty PostgreSQL database, and run the `.sql` file inside it with `psql`.
+2. **Run the checks:** run `sql_scripts/03_validation_checks.sql` and compare the results with the expected values in the comments.
+3. **Open the dashboard:** open `Enterprise Retail Sales Dashboard.pbix` in Power BI Desktop.
+4. **Refresh the data:** under **Transform data → Data source settings**, update the PostgreSQL connection details, then click **Refresh**.
 
 ---
 
 ## 📌 Data Source
 
-[Name the dataset here and add a link, if it is a public one.]
+[Name the dataset and add a link here, if it is a public one.]
 
 ---
 
-## 🚀 Possible Next Steps
+## 🔮 Possible Next Steps
 
-- Add profit and margin analysis.
+- Decide whether to remove exact duplicate rows, and document the impact on the totals.
 - Add a product category breakdown.
+- Add profit analysis if cost data becomes available.
 - Add year-over-year comparisons once a full second year of data is available.
